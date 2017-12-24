@@ -1,0 +1,323 @@
+{
+  "id": "com.soundunited.heos",
+  "sdk": 2,
+  "name": {
+    "en": "D&M Heos"
+  },
+  "description": {
+    "en": "Control your Heos devices with Homey"
+  },
+  "category": "music",
+  "tags": {
+      "en": [ "Heos", "Denon", "Marantz", "Sound United" ]
+  },
+  "version": "1.0.0",
+  "compatibility": ">=1.5.0",
+  "author": {
+    "name": "Ramón Baas"
+  },
+  "contributors": {
+    "developers": [
+      {
+        "name": "Emile Nijssen",
+        "email": "emile@athom.com"
+      }
+    ]
+  },
+  "images": {
+		"large": "/assets/images/large.jpg",
+		"small": "/assets/images/small.jpg"
+	},
+  "capabilities": {
+    "speaker_ctrl": {
+      "type": "enum",
+      "title": {
+        "en": "Controls"
+      },
+      "values": [{
+					"id": "speaker_prev",
+					"title": {
+						"en": "Previous",
+						"nl": "Vorige"
+					}
+				},
+				{
+					"id": "speaker_stop",
+					"title": {
+						"en": "Stop"
+					}
+				},
+				{
+					"id": "speaker_next",
+					"title": {
+						"en": "Next",
+						"nl": "Volgende"
+					}
+				}
+			],
+      "getable": false,
+      "setable": true
+    }
+  },
+  "drivers": [
+    {
+	    "id": "heos",
+	    "name": {
+		    "en": "Heos speaker or amplifier"
+	    },
+			"images": {
+				"large": "/drivers/heos/assets/images/large.jpg",
+				"small": "/drivers/heos/assets/images/small.jpg"
+			},
+	    "class": "speaker",
+			"capabilities": [ "speaker_playing", "speaker_prev", "speaker_next", "volume_set", "speaker_ctrl", "volume_mute" ],
+			"mobile": {
+				"components": [
+					{
+						"id": "icon",
+						"capabilities": []
+					},
+          {
+            "id": "ternary",
+            "capabilities": [ "speaker_ctrl" ],
+            "options": {
+              "icons": {
+                "top": "drivers/heos/assets/mobile/prev.svg",
+                "bottom": "drivers/heos/assets/mobile/next.svg"
+              },
+              "values": {
+                "top": "speaker_prev",
+                "middle": "speaker_stop",
+                "bottom": "speaker_next"
+              }
+            }
+          },
+					{
+						"id": "button",
+						"capabilities": [ "speaker_playing", "volume_mute" ],
+						"options": {
+							"hideTitle": [ "speaker_playing", "volume_mute" ],
+							"toggle": [ "speaker_playing", "volume_mute" ],
+							"icons": {
+                "speaker_playing": {
+									"true": "drivers/heos/assets/mobile/pause.svg",
+									"false": "drivers/heos/assets/mobile/play.svg"
+								},
+								"volume_mute": {
+									"true": "drivers/heos/assets/mobile/muted.svg",
+									"false": "drivers/heos/assets/mobile/unmuted.svg"
+								}
+							}
+						}
+					},
+					{
+						"id": "slider",
+						"capabilities": [ "volume_set" ]
+					}
+				]
+			},
+      "settings": [
+        {
+          "type": "group",
+          "label": {
+            "en": "Player information",
+            "nl": "Speler informatie"
+          },
+          "children": [
+            {
+              "id": "brand",
+              "type": "label",
+              "label": {
+                "en": "Brand",
+                "nl": "Merk"
+              },
+              "value": "Denon"
+            },
+            {
+              "id": "modelName",
+              "type": "label",
+              "label": {
+                "en": "Model"
+              },
+              "value": "Heos 1"
+            },
+            {
+              "id": "modelNumber",
+              "type": "label",
+              "label": {
+                "en": "Model number",
+                "nl": "Modelnummer"
+              },
+              "value": "DWS-1000 4.0"
+            },
+            {
+              "id": "serialNumber",
+              "type": "label",
+              "label": {
+                "en": "Serial number",
+                "nl": "Serienummer"
+              },
+              "value": "123456789"
+            },
+            {
+              "id": "ip",
+              "type": "label",
+              "label": {
+                "en": "IP address",
+                "nl": "IP adres"
+              },
+              "value": "127.0.0.1"
+            }
+          ]
+        },
+        {
+          "type": "group",
+          "label": {
+            "en": "Firmware"
+          },
+          "children": [
+            {
+              "id": "firmwareVersion",
+              "type": "label",
+              "label": {
+                "en": "Version",
+                "nl": "Versie"
+              },
+              "value": ""
+            },
+            {
+              "id": "firmwareDate",
+              "type": "label",
+              "label": {
+                "en": "Date",
+                "nl": "Datum"
+              },
+              "value": ""
+            },
+            {
+              "id": "firmwareRevision",
+              "type": "label",
+              "label": {
+                "en": "Revision",
+                "nl": "Revisie"
+              },
+              "value": ""
+            }
+          ]
+        }
+      ],
+	    "pair": [
+		    {
+			    "id": "list_devices",
+			    "template": "list_devices",
+			    "navigation": {
+				    "next": "add_devices"
+			    }
+		    },
+		    {
+			    "id": "add_devices",
+			    "template": "add_devices"
+		    }
+	    ]
+    }
+  ],
+  "flow": {
+		"triggers": [
+			{
+				"id": "play",
+				"title": {
+					"en": "Playback starts",
+          "nl": "Afspelen start"
+				},
+				"args": [
+					{
+						"type": "device",
+						"name": "device",
+						"filter": {
+							"driver_id": "heos",
+							"capabilities": "speaker_playing"
+						}
+					}
+				]
+			},
+      {
+				"id": "pause",
+				"title": {
+					"en": "Playback pauses",
+          "nl": "Afspelen pauseert"
+				},
+				"args": [
+					{
+						"type": "device",
+						"name": "device",
+						"filter": {
+							"driver_id": "heos",
+							"capabilities": "speaker_playing"
+						}
+					}
+				]
+			},
+      {
+				"id": "stop",
+				"title": {
+					"en": "Playback stops",
+          "nl": "Afspelen stopt"
+				},
+				"args": [
+					{
+						"type": "device",
+						"name": "device",
+						"filter": {
+							"driver_id": "heos",
+							"capabilities": "speaker_playing"
+						}
+					}
+				]
+			},
+      {
+				"id": "now_playing",
+				"title": {
+					"en": "Now playing changes",
+          "nl": "Wat afspeelt verandert"
+				},
+				"args": [
+					{
+						"type": "device",
+						"name": "device",
+						"filter": {
+							"driver_id": "heos"
+						}
+					}
+				],
+        "tokens": [
+          {
+            "name": "song",
+            "type": "string",
+            "title": {
+              "en": "Song",
+              "nl": "Nummer"
+            },
+            "example": "Last Christmas"
+          },
+          {
+            "name": "artist",
+            "type": "string",
+            "title": {
+              "en": "Artist",
+              "nl": "Artiest"
+            },
+            "example": "Wham"
+          },
+          {
+            "name": "album",
+            "type": "string",
+            "title": {
+              "en": "Album"
+            },
+            "example": "Greatest Hits"
+          }
+        ]
+			}
+		]
+	}
+}
