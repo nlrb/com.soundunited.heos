@@ -1,1 +1,19 @@
-{}
+{
+  "settings": {
+    "title": "Heos settings",
+    "description": "Log in with your Heos account credentials to get access to Heos stations and favorites.",
+    "account": {
+      "title": "Account",
+      "status": "Status",
+      "username": "Username",
+      "password": "Password",
+      "logout": "Log out"
+    },
+    "login": {
+      "logged_in": "Logged in",
+      "logged_out": "Logged out",
+      "failed": "Login failed"
+    },
+    "save": "Save settings"
+  }
+}

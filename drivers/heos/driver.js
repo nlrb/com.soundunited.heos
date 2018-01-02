@@ -40,6 +40,7 @@ module.exports = class HeosDriver extends Homey.Driver {
 
 	onInit() {
     this._root
+    this._accountLogin = false
     this._pid2mac = {}
     this._foundDevices = {}
     this._playerQueue = {}
@@ -73,6 +74,23 @@ module.exports = class HeosDriver extends Homey.Driver {
       }
     })
     this.startMainDiscover()
+
+    // Login to Heos account once connected to the root player
+    this.once('connected', async () => {
+  		let account = Homey.ManagerSettings.get('account')
+  		if (account) {
+        try {
+  		    let result = await this.accountLogin(account)
+          if (result.login) {
+            this.log('User', result.username, 'is logged in')
+          } else {
+            this.log('No user logged in', result.error)
+          }
+        } catch(err) {
+          this.log(err)
+        }
+  		}
+    })
 	}
 
   /**
@@ -97,32 +115,114 @@ module.exports = class HeosDriver extends Homey.Driver {
   }
 
   /**
-    @param {string} id Player wlan Mac address
-    @param {string} command Heos CLI command to execute
-    @param {} args Arguments to pass to the command
-  */
-  sendCommand(id, command, ...args) {
+      @param {object} account Heos account credentials
+   */
+  accountLogin(account) {
     return new Promise((resolve, reject) => {
       let rootDevice = this._foundDevices[this._root]
-      if (rootDevice) {
-        if (this._foundDevices[id] && this._foundDevices[id].player) {
-          let pid = this._foundDevices[id].player.pid
-          let arg = Object.assign({ pid: pid }, ...args)
-          this.log('Sending', command, 'with', arg)
-          rootDevice.instance.send(command, arg, (err, result) => {
-            if (err) {
-              reject(err)
+      if (rootDevice && account) {
+        rootDevice.instance.send('system/sign_in', { un: account.username, pw: account.password }, (err, result) => {
+          if (err) {
+            reject(err)
+          } else {
+            if (result.message.eid) {
+              this._accountLogin = false
+              resolve({ login: false, error: result.message.text, eid: result.message.eid })
             } else {
-              resolve(result.payload)
+              this._accountLogin = true
+              resolve({ login: true, username: result.message.un })
             }
-          })
-        } else {
-          reject('Cannot map mac '+ id + ' to pid')
-        }
+          }
+        })
       } else {
         reject('No root player available')
       }
     })
+  }
+
+  /**
+      Log out of Heos account
+   */
+  accountLogout() {
+    return new Promise((resolve, reject) => {
+      let rootDevice = this._foundDevices[this._root]
+      if (rootDevice) {
+        rootDevice.instance.send('system/sign_out', {}, (err, result) => {
+          if (err) {
+            reject(err)
+          } else {
+            this._accountLogin = false
+            resolve(result.message)
+          }
+        })
+      } else {
+        reject('No root player available')
+      }
+    })
+  }
+
+  /**
+      Check if a user is logged in
+   */
+  accountCheck() {
+    return new Promise((resolve, reject) => {
+      let rootDevice = this._foundDevices[this._root]
+      if (rootDevice) {
+        rootDevice.instance.send('system/check_account', {}, (err, result) => {
+          if (err) {
+            reject(err)
+          } else {
+            if (result.message['signed_out'] !== '') {
+              resolve({ login: true, username: result.message.un })
+            } else {
+              resolve({ login: false })
+            }
+          }
+        })
+      } else {
+        reject('No root player available')
+      }
+    })
+  }
+
+  /**
+    @param {string} command Heos CLI command to execute
+    @param {} args Arguments to pass to the command
+  */
+  sendCommand(command, ...args) {
+    return new Promise((resolve, reject) => {
+      let rootDevice = this._foundDevices[this._root]
+      if (rootDevice) {
+        this.log('Sending', command, 'with', ...args)
+        rootDevice.instance.send(command, ...args, (err, result) => {
+          if (err) {
+            // Due to errors, the player can get in a strange state.
+            // Just to be sure, close the connection and connect to a (new) root player
+            this.startMainDiscover()
+            reject(err)
+          } else {
+            resolve(result.payload)
+          }
+        })
+      } else {
+        reject('No root player available')
+      }
+    })
+  }
+
+  /**
+    @param {string} id Player wlan Mac address
+    @param {string} command Heos CLI command to execute
+    @param {} args Arguments to pass to the command
+  */
+  sendPlayerCommand(id, command, ...args) {
+    if (this._foundDevices[id] && this._foundDevices[id].player) {
+      let pid = this._foundDevices[id].player.pid.toString()
+      let arg = Object.assign({ pid: pid }, ...args)
+      return this.sendCommand(command, arg)
+    } else {
+      return Promise.reject('Cannot map mac '+ id + ' to pid')
+    }
   }
 
   /**
@@ -179,10 +279,11 @@ module.exports = class HeosDriver extends Homey.Driver {
         this.log('Connecting to', rootDevice.friendlyName)
         this._socket = rootDevice.instance.connect(err => {
     			if (err) {
+            this.emit('disconnected')
             this.log('Connection failed:', err)
             this.log('Root player unavailable:', rootDevice.friendlyName)
             this.emit('unavailable', rootDevice.wlanMac)
-            delete this._pid2mac[rootDevice.player.pid]
+            rootDevice.player && delete this._pid2mac[rootDevice.player.pid]
             delete this._foundDevices[root]
             // Check if connect error is from the current root device or not
             if (this._root === root) {
@@ -192,6 +293,7 @@ module.exports = class HeosDriver extends Homey.Driver {
             // Register for change events
             rootDevice.instance.systemRegisterForChangeEvents(true, (err) => {
     					if (err) { this.log('Warning: no change events:', err) }
+              this.emit('connected')
               this.updatePlayers()
     				})
             this.updateGroups()
@@ -229,7 +331,7 @@ module.exports = class HeosDriver extends Homey.Driver {
             this.log('Emitting', mac, on, msg)
             this.emit(mac, on, msg)
           } else {
-            this.log('Error: pid-mac mapping incomplete', pid, 'queueing', on)
+            this.log('Error: pid-mac mapping incomplete', pid, 'ignoring event', on)
           }
         } else {
           let gid = msg.gid

@@ -318,6 +318,32 @@
           }
         ]
 			}
-		]
+		],
+    "actions": [
+      {
+        "id": "play_favourite",
+        "title": {
+          "en": "Play Heos favourite",
+          "nl": "Speel Heos favoriet af"
+        },
+        "args": [
+          {
+            "type": "autocomplete",
+            "name": "favourite",
+            "placeholder": {
+              "en": "Enter name...",
+              "nl": "Geef naam in..."
+            }
+          },
+          {
+						"type": "device",
+						"name": "device",
+						"filter": {
+							"driver_id": "heos"
+						}
+					}
+        ]
+      }
+    ]
 	}
 }

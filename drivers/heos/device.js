@@ -24,6 +24,41 @@ module.exports = class HeosDevice extends Homey.Device {
       this.triggers[triggers[t]].register()
     }
 
+		// Homey flow handling - actions
+		let favouriteAction = new Homey.FlowCardAction('play_favourite');
+    favouriteAction
+      .register()
+      .registerRunListener((args, state) => {
+        // heos://browse/play_preset?pid=player_id&preset=preset_position
+				this.log('Favourite action listener', args.favourite)
+				// Important! this.id != args.device.id
+				return this.driver.sendPlayerCommand(args.device.id, 'player/play_preset', { preset: args.favourite.preset })
+      })
+      .getArgument('favourite')
+      .registerAutocompleteListener(async (query, args) => {
+				// Get Heos favourites
+				let favourites = await this.driver.sendCommand('browse/browse', { sid: 1028 })
+				if (favourites && favourites.length > 0) {
+					let result = []
+					let cnt = 1
+					for (let cnt = 0; cnt < favourites.length; cnt++) {
+						let fav = favourites[cnt]
+						if (fav.name.toLowerCase().indexOf(query.toLowerCase()) >= 0) {
+							result.push({
+								image: fav.image_url,
+								name: fav.name,
+								type: fav.type,
+								preset: cnt + 1
+							})
+						}
+					}
+					this.log('Result', result)
+					return Promise.resolve(result)
+				} else {
+					return Promise.reject(favourites.text || 'Error')
+				}
+			})
+
     // Register driver event handlers
     this.handlers = {
       'available': this.onAvailable,
@@ -39,33 +74,33 @@ module.exports = class HeosDevice extends Homey.Device {
     // Register capability listeners
     this.registerCapabilityListener('speaker_ctrl', (state) => {
       if (state === 'speaker_prev') {
-        return this.driver.sendCommand(this.id, 'player/play_previous')
+        return this.driver.sendPlayerCommand(this.id, 'player/play_previous')
       } else if (state === 'speaker_next') {
-        return this.driver.sendCommand(this.id, 'player/play_next')
+        return this.driver.sendPlayerCommand(this.id, 'player/play_next')
       } else {
-        return this.driver.sendCommand(this.id, 'player/set_play_state', { state: 'stop' })
+        return this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'stop' })
       }
-      return this.driver.sendCommand(this.id, 'player/play_previous')
+      return this.driver.sendPlayerCommand(this.id, 'player/play_previous')
     })
     this.registerCapabilityListener('speaker_playing', (state) => {
-      return this.driver.sendCommand(this.id, 'player/set_play_state', { state: (state ? 'play' : 'pause') })
+      return this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: (state ? 'play' : 'pause') })
     })
 		this.registerCapabilityListener('volume_mute', (mute) => {
-      return this.driver.sendCommand(this.id, 'player/set_mute', { state: (mute ? 'on' : 'off') })
+      return this.driver.sendPlayerCommand(this.id, 'player/set_mute', { state: (mute ? 'on' : 'off') })
     })
     this.registerCapabilityListener('volume_set', (volume) => {
-      return this.driver.sendCommand(this.id, 'player/set_volume', { level: 100 * volume })
+      return this.driver.sendPlayerCommand(this.id, 'player/set_volume', { level: 100 * volume })
     })
 
     /*
     // These are all standard actions for default capabilities already
     const actions = {
-      'start': () => this.driver.sendCommand(this.id, 'player/set_play_state', { state: 'play' }),
-      'pause': () => this.driver.sendCommand(this.id, 'player/set_play_state', { state: 'pause' }),
-      'stop': () => this.driver.sendCommand(this.id, 'player/set_play_state', { state: 'stop' }),
-      'prev': () => this.driver.sendCommand(this.id, 'player/play_previous'),
-      'next': () => this.driver.sendCommand(this.id, 'player/play_next'),
-      'volume_set': (args, state) => this.driver.sendCommand(this.id, 'player/set_volume', { level: 100 * args.volume })
+      'start': () => this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'play' }),
+      'pause': () => this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'pause' }),
+      'stop': () => this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'stop' }),
+      'prev': () => this.driver.sendPlayerCommand(this.id, 'player/play_previous'),
+      'next': () => this.driver.sendPlayerCommand(this.id, 'player/play_next'),
+      'volume_set': (args, state) => this.driver.sendPlayerCommand(this.id, 'player/set_volume', { level: 100 * args.volume })
     }
 
     for (let a in actions) {
@@ -130,7 +165,7 @@ module.exports = class HeosDevice extends Homey.Device {
       case 'player_now_playing_changed': {
         this.log('Retreiving playing media')
         try {
-          let result = await this.driver.sendCommand(this.id, 'player/get_now_playing_media')
+          let result = await this.driver.sendPlayerCommand(this.id, 'player/get_now_playing_media')
           let tokens = {
             song: result.song,
             artist: (result.type === 'station' ? result.station : result.artist),
@@ -157,7 +192,7 @@ module.exports = class HeosDevice extends Homey.Device {
 			case 'player_playback_error': {
 				if (this.mediaActive) {
 					// Stop playback if we cannot play the requested stream
-					this.driver.sendCommand(this.id, 'player/set_play_state', { state: 'stop' })
+					this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'stop' })
 						.catch(this.log)
 				}
 				break
@@ -171,13 +206,13 @@ module.exports = class HeosDevice extends Homey.Device {
 
   setValues() {
     // Initialize state
-    this.driver.sendCommand(this.id, 'player/get_volume', (data) => {
+    this.driver.sendPlayerCommand(this.id, 'player/get_volume', (data) => {
       this.setCapabilityValue('volume_set', data.level / 100)
     })
-    this.driver.sendCommand(this.id, 'player/get_play_state', (data) => {
+    this.driver.sendPlayerCommand(this.id, 'player/get_play_state', (data) => {
       this.setCapabilityValue('speaker_playing', data.state === 'play')
     })
-    this.driver.sendCommand(this.id, 'player/get_mute', (data) => {
+    this.driver.sendPlayerCommand(this.id, 'player/get_mute', (data) => {
       this.setCapabilityValue('volume_mute', data.state === 'on')
     })
   }
@@ -186,7 +221,7 @@ module.exports = class HeosDevice extends Homey.Device {
 		this.log(data)
 		if (data.track.stream_url) {
 			this.log('Starting stream', data.track.stream_url)
-			this.driver.sendCommand(this.id, 'browse/play_stream', { url: data.track.stream_url })
+			this.driver.sendPlayerCommand(this.id, 'browse/play_stream', { url: data.track.stream_url })
 				.catch(this.log)
 				.then(() => {
 					callback(null, true)
@@ -203,7 +238,7 @@ module.exports = class HeosDevice extends Homey.Device {
     if (isActive) {
 			// Speaker is active for Homey as source; stop current playback if playing
 			if (this.getCapabilityValue('speaker_playing') !== 'stop') {
-				this.driver.sendCommand(this.id, 'player/set_play_state', { state: 'stop' })
+				this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'stop' })
 					.catch(this.log)
 			}
 		}

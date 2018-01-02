@@ -1,0 +1,86 @@
+<!doctype html>
+<html>
+    <head>
+        <script type="text/javascript" src="/homey.js" data-origin="settings"></script>
+    </head>
+    <body>
+        <h1 data-i18n="settings.title"></h1>
+        <p data-i18n="settings.description"></p>
+        <fieldset>
+            <legend data-i18n="settings.account.title"></legend>
+            <div class="field row">
+                <label for="status" data-i18n="settings.account.status"></label>
+                <label id="status" style="width:260px"></label>
+            </div>
+            <div class="field row">
+                <label for="username" data-i18n="settings.account.username"></label>
+                <input id="username" type="text" value="" />
+            </div>
+            <div class="field row">
+                <label for="password" data-i18n="settings.account.password"></label>
+                <input id="password" type="password" value="" />
+            </div>
+            <button id="logout" class="right"  data-i18n="settings.account.logout"></button>
+        </fieldset>
+        <button id="save" class="right"  data-i18n="settings.save"></button>
+
+        <script type="text/javascript">
+
+        // a method named 'onHomeyReady' must be present in your code
+        function onHomeyReady(Homey) {
+
+            // Tell Homey we're ready to be displayed
+            Homey.ready();
+
+            var statusElement = document.getElementById('status');
+            var usernameElement = document.getElementById('username');
+            var passwordElement = document.getElementById('password');
+            var logoutElement = document.getElementById('logout');
+            var saveElement = document.getElementById('save');
+
+            Homey.on('login', (result) => {
+              if (result) {
+                if (result.login) {
+                  statusElement.innerHTML = __('settings.login.logged_in')
+                } else {
+                  statusElement.innerHTML = __('settings.login.failed')
+                }
+              }
+            })
+
+            Homey.get('account', function(err, account) {
+               if (err) return Homey.alert(err);
+               usernameElement.value = account.username;
+               passwordElement.value = account.password;
+            });
+
+            Homey.api('GET', '/accountGetStatus', {}, function(err, result) {
+              if (err) return Homey.alert(err);
+              if (result && result.login) {
+                let text = __('settings.login.logged_in')
+                if (result.username !== usernameElement.value) {
+                  text += ' (' + result.username + ')'
+                }
+                statusElement.innerHTML = text
+              } else {
+                statusElement.innerHTML = __('settings.login.logged_out')
+              }
+            });
+
+            logoutElement.addEventListener('click', function(e) {
+              Homey.api('PUT', '/accountLogout', {}, function(err, result) {
+                if (err) return Homey.alert(err);
+                let text = __('settings.login.logged_out')
+                statusElement.innerHTML = text
+              });
+            });
+            saveElement.addEventListener('click', function(e) {
+                Homey.set('account', { username: usernameElement.value, password: passwordElement.value }, function(err) {
+                    if (err) return Homey.alert(err);
+                });
+            });
+        }
+        </script>
+
+    </body>
+</html>
