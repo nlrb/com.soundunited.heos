@@ -66,10 +66,10 @@ module.exports = class HeosDriver extends Homey.Driver {
 
       // We need a root speaker to connect to and get all information from
       if (!this._root) {
-        this._root = device.wlanMac
-        this.log('Root device:', device.friendlyName)
         // Add DenonHeos instance for the rootDevice
         this._foundDevices[device.wlanMac].instance = new DenonHeos(device.address)
+        this._root = device.wlanMac
+        this.log('Root device:', device.friendlyName)
         this._registerListeners()
       }
     })
@@ -205,6 +205,8 @@ module.exports = class HeosDriver extends Homey.Driver {
           }
         })
       } else {
+        // Find a new root player, but too late for this command
+        this.startMainDiscover()
         reject('No root player available')
       }
     })
@@ -392,6 +394,10 @@ module.exports = class HeosDriver extends Homey.Driver {
           this.emit('unavailable', d)
           delete this._pid2mac[pid]
           delete this._foundDevices[d]
+          if (d === this._root) {
+            // don't just delete the root device, we always need one
+            this.startMainDiscover();
+          }
         }
       } else {
         this.log('Warning: player', this._foundDevices[d].friendlyName, 'not found by getPlayers!')

@@ -110,7 +110,7 @@ module.exports = class HeosDevice extends Homey.Device {
         .registerRunListener(actions[a])
     }
     */
-
+/*
 		// Integrate into Homey Media as speaker
 		this.speaker = new Homey.Speaker(this)
 
@@ -120,6 +120,7 @@ module.exports = class HeosDevice extends Homey.Device {
     	.on('setPosition', this.mediaSetPosition.bind(this))
     	.on('setActive', this.mediaSetSpeakerActive.bind(this))
 			.register({ codecs: ['homey:codec:mp3', 'homey:codec:flac'] })
+*/
   }
 
   onDeleted() {
@@ -165,7 +166,7 @@ module.exports = class HeosDevice extends Homey.Device {
       case 'player_now_playing_changed': {
         this.log('Retreiving playing media')
         try {
-          let result = await this.driver.sendPlayerCommand(this.id, 'player/get_now_playing_media')
+          let result = await this.driver.sendPlayerCommand(this.id, 'player/get_now_playing_media').catch(this.log)
           let tokens = {
             song: result.song,
             artist: (result.type === 'station' ? result.station : result.artist),
@@ -208,13 +209,13 @@ module.exports = class HeosDevice extends Homey.Device {
     // Initialize state
     this.driver.sendPlayerCommand(this.id, 'player/get_volume', (data) => {
       this.setCapabilityValue('volume_set', data.level / 100)
-    })
+    }).catch(this.log)
     this.driver.sendPlayerCommand(this.id, 'player/get_play_state', (data) => {
       this.setCapabilityValue('speaker_playing', data.state === 'play')
-    })
+    }).catch(this.log)
     this.driver.sendPlayerCommand(this.id, 'player/get_mute', (data) => {
       this.setCapabilityValue('volume_mute', data.state === 'on')
-    })
+    }).catch(this.log)
   }
 
 	mediaSetTrack(data, callback) {
