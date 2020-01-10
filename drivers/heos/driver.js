@@ -231,7 +231,7 @@ module.exports = class HeosDriver extends Homey.Driver {
    * Main SSDP discovery: called when we know we need a root player
    */
   startMainDiscover() {
-    this._root = undefined
+    this._removeRoot()
     this._socket = undefined
     this._discover.once('device', () => {
       setTimeout(() => this.connectRootPlayer(), 1000)
@@ -280,17 +280,18 @@ module.exports = class HeosDriver extends Homey.Driver {
       if (rootDevice) {
         this.log('Connecting to', rootDevice.friendlyName)
         this._socket = rootDevice.instance.connect(err => {
-    			if (err) {
+    	  if (err) {
             this.emit('disconnected')
             this.log('Connection failed:', err)
             this.log('Root player unavailable:', rootDevice.friendlyName)
             this.emit('unavailable', rootDevice.wlanMac)
             rootDevice.player && delete this._pid2mac[rootDevice.player.pid]
-            delete this._foundDevices[root]
             // Check if connect error is from the current root device or not
             if (this._root === root) {
               this.startMainDiscover()
-            }
+            } else {
+              delete this._foundDevices[root]
+			      }
           } else {
             // Register for change events
             rootDevice.instance.systemRegisterForChangeEvents(true, (err) => {
@@ -350,6 +351,17 @@ module.exports = class HeosDriver extends Homey.Driver {
   }
 
   /**
+   * Remove the root device and event listeners
+   */
+  _removeRoot() {
+	if (this._root && this._foundDevices[this._root]) {
+	  this._foundDevices[this._root].instance.removeAllListeners()
+      delete this._foundDevices[this._root]
+	}
+	this._root = undefined
+  }
+
+  /**
    * Get the Heos CLI player list information
    */
   updatePlayers() {
@@ -393,11 +405,12 @@ module.exports = class HeosDriver extends Homey.Driver {
           this.log('Player unavailable:', device.friendlyName)
           this.emit('unavailable', d)
           delete this._pid2mac[pid]
-          delete this._foundDevices[d]
           if (d === this._root) {
             // don't just delete the root device, we always need one
-            this.startMainDiscover();
-          }
+            this.startMainDiscover()
+          } else {
+			      delete this._foundDevices[d]
+		      }
         }
       } else {
         this.log('Warning: player', this._foundDevices[d].friendlyName, 'not found by getPlayers!')
@@ -442,29 +455,32 @@ module.exports = class HeosDriver extends Homey.Driver {
 			for (let id in this._foundDevices) {
 				let foundDevice = this._foundDevices[id]
         let player = foundDevice.player
-				let iconname = icons[player.model] || 'icon'
-				if (player.model.indexOf('AVR') >= 0) {
-					iconname = 'avr'
-				}
-				iconname = 'icons/' + iconname + '.svg'
-				this.log(player.name, iconname)
+        // only add player devices
+        if (player !== undefined) {
+  				let iconname = icons[player.model] || 'icon'
+  				if (player.model.indexOf('AVR') >= 0) {
+  					iconname = 'avr'
+  				}
+  				iconname = 'icons/' + iconname + '.svg'
+  				this.log(player.name, iconname)
 
-        let device = {
-					name: player.name,
-					data: {
-						id: id // wlan Mac
-					},
-          settings: {
-            brand: foundDevice.manufacturer,
-            modelName: player.model,
-            modelNumber: foundDevice.modelNumber,
-            serialNumber: foundDevice.serialNumber === '' ? 'n/a' : foundDevice.serialNumber
-          },
-					icon: iconname
-				}
-        let settings = this.getPlayerVolatileSettings(id)
-        Object.assign(device.settings, settings)
-				devices.push(device)
+          let device = {
+  					name: player.name,
+  					data: {
+  						id: id // wlan Mac
+  					},
+            settings: {
+              brand: foundDevice.manufacturer,
+              modelName: player.model,
+              modelNumber: foundDevice.modelNumber,
+              serialNumber: foundDevice.serialNumber === '' ? 'n/a' : foundDevice.serialNumber
+            },
+  					icon: iconname
+  				}
+          let settings = this.getPlayerVolatileSettings(id)
+          Object.assign(device.settings, settings)
+  				devices.push(device)
+        }
 			}
 			callback(null, devices)
 		})
