@@ -5,14 +5,15 @@
     "en": "D&M Heos"
   },
   "description": {
-    "en": "Control your Heos devices with Homey"
+    "en": "Control your Heos devices with Homey",
+    "nl": "Bestuur je Heos apparaten met Homey"
   },
   "category": "music",
   "tags": {
       "en": [ "Heos", "Denon", "Marantz", "Sound United" ]
   },
-  "version": "1.0.1",
-  "compatibility": ">=1.5.0",
+  "version": "1.1.0",
+  "compatibility": ">=2.2.0",
   "author": {
     "name": "Ramón Baas"
   },
@@ -28,37 +29,6 @@
 		"large": "/assets/images/large.jpg",
 		"small": "/assets/images/small.jpg"
 	},
-  "capabilities": {
-    "speaker_ctrl": {
-      "type": "enum",
-      "title": {
-        "en": "Controls"
-      },
-      "values": [{
-					"id": "speaker_prev",
-					"title": {
-						"en": "Previous",
-						"nl": "Vorige"
-					}
-				},
-				{
-					"id": "speaker_stop",
-					"title": {
-						"en": "Stop"
-					}
-				},
-				{
-					"id": "speaker_next",
-					"title": {
-						"en": "Next",
-						"nl": "Volgende"
-					}
-				}
-			],
-      "getable": false,
-      "setable": true
-    }
-  },
   "drivers": [
     {
 	    "id": "heos",
@@ -70,52 +40,10 @@
 				"small": "/drivers/heos/assets/images/small.jpg"
 			},
 	    "class": "speaker",
-			"capabilities": [ "speaker_playing", "speaker_prev", "speaker_next", "volume_set", "speaker_ctrl", "volume_mute" ],
-			"mobile": {
-				"components": [
-					{
-						"id": "icon",
-						"capabilities": []
-					},
-          {
-            "id": "ternary",
-            "capabilities": [ "speaker_ctrl" ],
-            "options": {
-              "icons": {
-                "top": "drivers/heos/assets/mobile/prev.svg",
-                "bottom": "drivers/heos/assets/mobile/next.svg"
-              },
-              "values": {
-                "top": "speaker_prev",
-                "middle": "speaker_stop",
-                "bottom": "speaker_next"
-              }
-            }
-          },
-					{
-						"id": "button",
-						"capabilities": [ "speaker_playing", "volume_mute" ],
-						"options": {
-							"hideTitle": [ "speaker_playing", "volume_mute" ],
-							"toggle": [ "speaker_playing", "volume_mute" ],
-							"icons": {
-                "speaker_playing": {
-									"true": "drivers/heos/assets/mobile/pause.svg",
-									"false": "drivers/heos/assets/mobile/play.svg"
-								},
-								"volume_mute": {
-									"true": "drivers/heos/assets/mobile/muted.svg",
-									"false": "drivers/heos/assets/mobile/unmuted.svg"
-								}
-							}
-						}
-					},
-					{
-						"id": "slider",
-						"capabilities": [ "volume_set" ]
-					}
-				]
-			},
+			"capabilities": [
+        "speaker_playing", "speaker_prev", "speaker_next", "volume_set", "volume_mute",
+        "speaker_shuffle", "speaker_repeat", "speaker_artist", "speaker_album", "speaker_track"
+      ],
       "settings": [
         {
           "type": "group",

@@ -201,7 +201,7 @@ module.exports = class HeosDriver extends Homey.Driver {
             this.startMainDiscover()
             reject(err)
           } else {
-            resolve(result.payload)
+            resolve(result.payload || result.message)
           }
         })
       } else {
@@ -418,7 +418,7 @@ module.exports = class HeosDriver extends Homey.Driver {
   	}
     // Put all unmapped players in IP address queue
     this._playerQueue = {}
-    players.forEach(p => { if (!p.isMapped) { this._playerQueue[p.ip] = p } })
+    players.forEach(p => { if (!p.isMapped && p.ip !== undefined) { this._playerQueue[p.ip] = p } })
     this.log('Players in queue:', Object.keys(this._playerQueue))
   }
 
