@@ -12,7 +12,7 @@
   "tags": {
       "en": [ "Heos", "Denon", "Marantz", "Sound United" ]
   },
-  "version": "1.1.0",
+  "version": "1.1.1",
   "compatibility": ">=2.2.0",
   "author": {
     "name": "Ramón Baas"
@@ -42,7 +42,8 @@
 	    "class": "speaker",
 			"capabilities": [
         "speaker_playing", "speaker_prev", "speaker_next", "volume_set", "volume_mute",
-        "speaker_shuffle", "speaker_repeat", "speaker_artist", "speaker_album", "speaker_track"
+        "speaker_shuffle", "speaker_repeat", "speaker_artist", "speaker_album", "speaker_track",
+        "speaker_duration", "speaker_position"
       ],
       "settings": [
         {
@@ -270,6 +271,29 @@
 							"driver_id": "heos"
 						}
 					}
+        ]
+      },
+      {
+        "id": "play_url",
+        "title": {
+          "en": "Play URL",
+          "nl": "Speel URL af"
+        },
+        "args": [
+          {
+            "type": "text",
+            "name": "url",
+            "placeholder": {
+              "en": "http://"
+            }
+          },
+          {
+            "type": "device",
+            "name": "device",
+            "filter": {
+              "driver_id": "heos"
+            }
+          }
         ]
       }
     ]

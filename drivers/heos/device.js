@@ -3,8 +3,6 @@
 const Homey	= require('homey')
 const DenonHeos = require('denon-heos').DenonHeos
 
-const obsoleteCap = [ 'speaker_ctrl' ];
-const newCap = [ 'speaker_shuffle', 'speaker_repeat', 'speaker_artist', 'speaker_album', 'speaker_track' ];
 const repeatMap = { none: 'off', track: 'on_one', playlist: 'on_all' };
 const repeatMapR = { off: 'none', on_one: 'track', on_all: 'playlist' };
 
@@ -34,17 +32,18 @@ module.exports = class HeosDevice extends Homey.Device {
     }
 
 		// For backward compatibility: add capabilities that were previously not there
-		let cap = this.getCapabilities();
-		for (let c in newCap) {
-			if (!cap.includes(newCap[c])) {
-				this.log('Adding capability', newCap[c], 'to device', this.getName());
-				this.addCapability(newCap[c]).catch(this.error);
+		let deviceCap = this.getCapabilities();
+		let currentCap = this.driver.getManifest().capabilities;
+		for (let c in currentCap) {
+			if (!deviceCap.includes(currentCap[c])) {
+				this.log('Adding capability', currentCap[c], 'to device', this.getName());
+				this.addCapability(currentCap[c]).catch(this.error);
 			}
 		}
-		for (let c in obsoleteCap) {
-			if (cap.includes(obsoleteCap[c])) {
-				this.log('Removing capability', obsoleteCap[c], 'from device', this.getName());
-				this.addCapability(obsoleteCap[c]).catch(this.error);
+		for (let c in deviceCap) {
+			if (!currentCap.includes(deviceCap[c])) {
+				this.log('Removing capability', deviceCap[c], 'from device', this.getName());
+				this.removeCapability(deviceCap[c]).catch(this.error);
 			}
 		}
 
@@ -90,6 +89,15 @@ module.exports = class HeosDevice extends Homey.Device {
 					return Promise.reject(favourites.text || 'Error')
 				}
 			})
+
+			let urlAction = new Homey.FlowCardAction('play_url');
+	    urlAction
+	      .register()
+	      .registerRunListener((args, state) => {
+					this.log('URL action listener', args.url);
+					// Important! this.id != args.device.id
+					return this.driver.sendPlayerCommand(args.device.id, 'browse/play_stream', { url: args.url });
+	      })
 
     // Register driver event handlers
     this.handlers = {
@@ -249,10 +257,9 @@ module.exports = class HeosDevice extends Homey.Device {
         break
       }
       case 'player_now_playing_progress': {
-				if (this.mediaActive) {
-					this.speaker.updateState({ position: Number(message.cur_pos) })
-				}
-        break
+				this.setCapabilityValue('speaker_position', Number(message.cur_pos)).catch(this.error);
+				this.setCapabilityValue('speaker_duration', Number(message.duration)).catch(this.error);
+        break;
       }
 			case 'player_playback_error': {
 				if (this.mediaActive) {
