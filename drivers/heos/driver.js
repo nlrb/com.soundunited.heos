@@ -7,6 +7,7 @@ const DenonHeos = require('denon-heos').DenonHeos
 const icons = {
   'HEOS HomeCinema': 'homecinema',
   'HEOS Amp': 'amp',
+  'HEOS Sub': 'sub',
   'HEOS 1': 'heos1',
   'HEOS 3': 'heos3',
   'HEOS 5': 'heos5',
