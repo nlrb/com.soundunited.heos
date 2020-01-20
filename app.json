@@ -12,7 +12,7 @@
   "tags": {
       "en": [ "Heos", "Denon", "Marantz", "Sound United" ]
   },
-  "version": "1.1.1",
+  "version": "1.1.2",
   "compatibility": ">=2.2.0",
   "author": {
     "name": "Ramón Baas"
@@ -29,6 +29,26 @@
 		"large": "/assets/images/large.jpg",
 		"small": "/assets/images/small.jpg"
 	},
+  "discovery": {
+    "dm-heos": {
+      "type": "ssdp",
+      "ssdp": {
+        "search": "urn:schemas-denon-com:device:ACT-Denon:1"
+      },
+      "id": "{{headers.usn}}",
+      "conditions": [
+        [
+          {
+            "field": "headers.st",
+            "match": {
+              "type": "string",
+              "value": "urn:schemas-denon-com:device:ACT-Denon:1"
+            }
+          }
+        ]
+      ]
+    }
+  },
   "drivers": [
     {
 	    "id": "heos",
@@ -40,11 +60,12 @@
 				"small": "/drivers/heos/assets/images/small.jpg"
 			},
 	    "class": "speaker",
-			"capabilities": [
+  		"capabilities": [
         "speaker_playing", "speaker_prev", "speaker_next", "volume_set", "volume_mute",
         "speaker_shuffle", "speaker_repeat", "speaker_artist", "speaker_album", "speaker_track",
         "speaker_duration", "speaker_position"
       ],
+      "discovery": "dm-heos",
       "settings": [
         {
           "type": "group",
@@ -285,6 +306,30 @@
             "name": "url",
             "placeholder": {
               "en": "http://"
+            }
+          },
+          {
+            "type": "device",
+            "name": "device",
+            "filter": {
+              "driver_id": "heos"
+            }
+          }
+        ]
+      },
+      {
+        "id": "play_input",
+        "title": {
+          "en": "Use input",
+          "nl": "Gebruik ingang"
+        },
+        "args": [
+          {
+            "type": "autocomplete",
+            "name": "input",
+            "placeholder": {
+              "en": "Enter input...",
+              "nl": "Naam ingang..."
             }
           },
           {

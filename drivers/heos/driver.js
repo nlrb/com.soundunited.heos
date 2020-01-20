@@ -47,6 +47,13 @@ module.exports = class HeosDriver extends Homey.Driver {
     this._groups = {}
     this._discover = new Discover()
 
+    /* Can only start using this when it finds all devices
+    const discoveryStrategy = this.getDiscoveryStrategy();
+    discoveryStrategy.on('result', discoveryResult => {
+      this.log('Got result:', discoveryResult);
+    });
+    */
+
     this._discover.on('device', device => {
 			this.log('Found device', device.friendlyName, 'model', device.modelName)
       device.foundReachable = new Date()
@@ -198,7 +205,7 @@ module.exports = class HeosDriver extends Homey.Driver {
           if (err) {
             // Due to errors, the player can get in a strange state.
             // Just to be sure, close the connection and connect to a (new) root player
-            this.startMainDiscover()
+            //this.startMainDiscover()
             reject(err)
           } else {
             resolve(result.payload || result.message)
@@ -218,13 +225,25 @@ module.exports = class HeosDriver extends Homey.Driver {
     @param {} args Arguments to pass to the command
   */
   sendPlayerCommand(id, command, ...args) {
-    if (this._foundDevices[id] && this._foundDevices[id].player) {
-      let pid = this._foundDevices[id].player.pid.toString()
+    let pid = this.getPlayerId(id);
+    if (pid) {
       let arg = Object.assign({ pid: pid }, ...args)
       return this.sendCommand(command, arg)
     } else {
-      return Promise.reject('Cannot map mac '+ id + ' to pid')
+      return Promise.reject('Cannot map mac ' + id + ' to pid')
     }
+  }
+
+  /**
+    @param {string} id Player wlan Mac address
+    @return {string} Heos player id (pid)
+  */
+  getPlayerId(id) {
+    let pid;
+    if (this._foundDevices[id] && this._foundDevices[id].player) {
+      pid = this._foundDevices[id].player.pid.toString()
+    }
+    return pid;
   }
 
   /**
@@ -355,8 +374,9 @@ module.exports = class HeosDriver extends Homey.Driver {
    */
   _removeRoot() {
 	if (this._root && this._foundDevices[this._root]) {
-	  this._foundDevices[this._root].instance.removeAllListeners()
-      delete this._foundDevices[this._root]
+    this.log('Removing all listeners and deleting root device')
+	  this._foundDevices[this._root].instance.removeAllListeners();
+    delete this._foundDevices[this._root];
 	}
 	this._root = undefined
   }

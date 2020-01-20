@@ -1,13 +1,12 @@
 'use strict'
 
-const Homey	= require('homey')
-const DenonHeos = require('denon-heos').DenonHeos
+const Homey	= require('homey');
+const DenonHeos = require('denon-heos').DenonHeos;
+const http = require('http');
 
 const repeatMap = { none: 'off', track: 'on_one', playlist: 'on_all' };
 const repeatMapR = { off: 'none', on_one: 'track', on_all: 'playlist' };
 
-
-const http = require('http');
 
 module.exports = class HeosDevice extends Homey.Device {
 
@@ -22,14 +21,8 @@ module.exports = class HeosDevice extends Homey.Device {
 	}
 
 	async onInit() {
-		this.mediaActive = false
     this.id = await this.getData().id
     this.driver = await this.getDriver()
-    if (!this.driver.getPlayerAvailable(this.id)) {
-      this.setUnavailable('No connection')
-    } else {
-      this.setValues()
-    }
 
 		// For backward compatibility: add capabilities that were previously not there
 		let deviceCap = this.getCapabilities();
@@ -51,8 +44,8 @@ module.exports = class HeosDevice extends Homey.Device {
     const triggers = ['play', 'pause', 'stop', 'now_playing']
     this.triggers = {}
     for (let t in triggers) {
-      this.triggers[triggers[t]] = new Homey.FlowCardTriggerDevice(triggers[t])
-      this.triggers[triggers[t]].register()
+      this.triggers[triggers[t]] = new Homey.FlowCardTriggerDevice(triggers[t]);
+      let result = this.triggers[triggers[t]].register();
     }
 
 		// Homey flow handling - actions
@@ -90,14 +83,51 @@ module.exports = class HeosDevice extends Homey.Device {
 				}
 			})
 
-			let urlAction = new Homey.FlowCardAction('play_url');
-	    urlAction
-	      .register()
-	      .registerRunListener((args, state) => {
-					this.log('URL action listener', args.url);
-					// Important! this.id != args.device.id
-					return this.driver.sendPlayerCommand(args.device.id, 'browse/play_stream', { url: args.url });
-	      })
+		let urlAction = new Homey.FlowCardAction('play_url');
+    urlAction
+      .register()
+      .registerRunListener((args, state) => {
+				this.log('URL action listener', args.url);
+				// Important! this.id != args.device.id
+				return this.driver.sendPlayerCommand(args.device.id, 'browse/play_stream', { url: args.url });
+      })
+
+		let inputAction = new Homey.FlowCardAction('play_input');
+    inputAction
+      .register()
+      .registerRunListener((args, state) => {
+				this.log('Input action listener', args.input)
+				// Important! this.id != args.device.id
+				return this.driver.sendPlayerCommand(args.device.id, 'browse/play_input', { input: args.input.mid, spid: args.input.sid })
+      })
+      .getArgument('input')
+      .registerAutocompleteListener(async (query, args) => {
+				// Get Heos Inputs
+				//let sid = this.driver.getPlayerId(args.device.id);
+				let inputs = [];
+				try {
+					let aux = await this.driver.sendCommand('browse/browse', { sid: 1027 });
+					if (aux) {
+						for (let p in aux) {
+							let sid = aux[p].sid;
+							let result = await this.driver.sendCommand('browse/browse', { sid: sid });
+							if (result) {
+								for (let r in result) {
+									inputs.push({
+										name: result[r].name,
+										mid: result[r].mid,
+										sid: sid
+									});
+								}
+							}
+						}
+					}
+				} catch(err) {
+					this.error(err);
+				}
+				this.log('Inputs', inputs);
+				return Promise.resolve(inputs);
+			})
 
     // Register driver event handlers
     this.handlers = {
@@ -134,41 +164,20 @@ module.exports = class HeosDevice extends Homey.Device {
       return this.driver.sendPlayerCommand(this.id, 'player/set_play_mode', { repeat: repeatMap[repeat] })
     })
 
+		// Register album art image
 		this.image = new Homey.Image();
     this.image.setUrl(null);
-    this.image.register()
-    	.then(() => { return this.setAlbumArtImage(this.image); })
-    	.catch(this.error);
+		await this.image.register().catch(this.error);
+		await this.setAlbumArtImage(this.image).catch(this.error);
 
-  /*
-    // These are all standard actions for default capabilities already
-    const actions = {
-      'start': () => this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'play' }),
-      'pause': () => this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'pause' }),
-      'stop': () => this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'stop' }),
-      'prev': () => this.driver.sendPlayerCommand(this.id, 'player/play_previous'),
-      'next': () => this.driver.sendPlayerCommand(this.id, 'player/play_next'),
-      'volume_set': (args, state) => this.driver.sendPlayerCommand(this.id, 'player/set_volume', { level: 100 * args.volume })
-    }
+		// Set availability and initial values
+		if (!this.driver.getPlayerAvailable(this.id)) {
+			this.setUnavailable(Homey.__('error.unreachable', { since: new Date().toDateString() }));
+		} else {
+			await this.setAvailable().catch(this.error);
+			this.setValues();
+		}
 
-    for (let a in actions) {
-      let newAction = new Homey.FlowCardAction(a)
-      newAction
-        .register()
-        .registerRunListener(actions[a])
-    }
-    */
-/*
-		// Integrate into Homey Media as speaker
-		this.speaker = new Homey.Speaker(this)
-
-    // Set listeners and register speaker
-    this.speaker
-			.on('setTrack', this.mediaSetTrack.bind(this))
-    	.on('setPosition', this.mediaSetPosition.bind(this))
-    	.on('setActive', this.mediaSetSpeakerActive.bind(this))
-			.register({ codecs: ['homey:codec:mp3', 'homey:codec:flac'] })
-*/
   }
 
   onDeleted() {
@@ -223,29 +232,34 @@ module.exports = class HeosDevice extends Homey.Device {
         this.log('Retreiving playing media')
         try {
           let result = await this.driver.sendPlayerCommand(this.id, 'player/get_now_playing_media').catch(this.error);
-          let tokens = {
-            song: result.song,
-            artist: (result.type === 'station' ? result.station : result.artist),
-            album: result.album
-          }
-					// Update capability values
-					this.setCapabilityValue('speaker_artist', tokens.artist).catch(this.error);
-					this.setCapabilityValue('speaker_album', tokens.album).catch(this.error);
-					this.setCapabilityValue('speaker_track', tokens.song).catch(this.error);
-					// Update album art image, only https URLs are supported
-					let url = result.image_url;
-					this.log('URL:', url);
-					if (url.startsWith('https')) {
-						this.image.setUrl(url);
-					} else if (url.startsWith('http')) {
-						this.setHomeyImage(url);
-					} else {
-						this.image.setUrl(null);
+					if (result) {
+	          let tokens = {
+	            song: result.song,
+	            artist: (result.type === 'station' ? result.station : result.artist),
+	            album: result.album
+	          }
+						// Update capability values
+						this.setCapabilityValue('speaker_artist', tokens.artist).catch(this.error);
+						this.setCapabilityValue('speaker_album', tokens.album).catch(this.error);
+						this.setCapabilityValue('speaker_track', tokens.song).catch(this.error);
+						// Update album art image, only https URLs are supported
+						let url = result.image_url;
+						if (url) {
+							this.log('URL:', url);
+							if (url.startsWith('https')) {
+								this.image.setUrl(url);
+							} else if (url.startsWith('http')) {
+								this.setHomeyImage(url);
+							} else {
+								this.image.setUrl(null);
+							}
+							this.image.update().catch(this.error);
+						}
+						// Send trigger
+	          this.triggers.now_playing.trigger(this, tokens)
+	            .then(this.log('Sent trigger now_playing with token', tokens))
+							.catch(this.error)
 					}
-					this.image.update().catch(this.error);
-					// Send trigger
-          this.triggers.now_playing.trigger(this, tokens)
-            .then(this.log('Sent trigger now_playing with token', tokens))
         } catch (err) {
           this.log('Error:', err)
         }
@@ -262,12 +276,9 @@ module.exports = class HeosDevice extends Homey.Device {
         break;
       }
 			case 'player_playback_error': {
-				if (this.mediaActive) {
-					// Stop playback if we cannot play the requested stream
-					this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'stop' })
-						.catch(this.error)
-				}
-				break
+				this.setWarning(message.error).catch(this.error);
+				//setTimeout(() => this.unsetWarning().catch(this.error), 5000);
+				break;
 			}
       default: {
         this.log('Ignoring action:', action)
@@ -304,33 +315,5 @@ module.exports = class HeosDevice extends Homey.Device {
 			.catch(this.error);
 		this.onEvent('player_now_playing_changed');
   }
-
-	mediaSetTrack(data, callback) {
-		this.log(data)
-		if (data.track.stream_url) {
-			this.log('Starting stream', data.track.stream_url)
-			this.driver.sendPlayerCommand(this.id, 'browse/play_stream', { url: data.track.stream_url })
-				.catch(this.log)
-				.then(() => {
-					callback(null, true)
-				})
-		}
-	}
-
-	mediaSetPosition(position, callback) {
-		callback(null, false) // not supported
-	}
-
-	mediaSetSpeakerActive(isActive, callback) {
-		this.mediaActive = isActive
-    if (isActive) {
-			// Speaker is active for Homey as source; stop current playback if playing
-			if (this.getCapabilityValue('speaker_playing') !== 'stop') {
-				this.driver.sendPlayerCommand(this.id, 'player/set_play_state', { state: 'stop' })
-					.catch(this.log)
-			}
-		}
-		callback(null, isActive)
-	}
 
 }

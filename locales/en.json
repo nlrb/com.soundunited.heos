@@ -15,5 +15,8 @@
       "failed": "Login failed"
     },
     "save": "Save settings"
+  },
+  "error": {
+    "unreachable": "Cannot reach the Heos device since __since__."
   }
 }
