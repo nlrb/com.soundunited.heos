@@ -277,7 +277,7 @@ module.exports = class HeosDevice extends Homey.Device {
       }
 			case 'player_playback_error': {
 				this.setWarning(message.error).catch(this.error);
-				//setTimeout(() => this.unsetWarning().catch(this.error), 5000);
+				setTimeout(() => this.unsetWarning().catch(this.error), 5000);
 				break;
 			}
       default: {
