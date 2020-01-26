@@ -1,11 +1,13 @@
 'use strict'
 
-const Homey = require('homey')
-const Discover 	= require('denon-heos').Discover
-const DenonHeos = require('denon-heos').DenonHeos
+const Homey = require('homey');
+const Discover 	= require('denon-heos').Discover;
+const DenonHeos = require('denon-heos').DenonHeos;
+const DenonAvr = require('denon-avr').DenonAvrIp;
 
 const icons = {
   'HEOS HomeCinema': 'homecinema',
+  'HEOS AVR': 'avr',
   'HEOS Amp': 'amp',
   'HEOS Sub': 'sub',
   'HEOS 1': 'heos1',
@@ -55,15 +57,26 @@ module.exports = class HeosDriver extends Homey.Driver {
     });
     */
 
-    this._discover.on('device', device => {
+    this._discover.on('device', async (device) => {
 			this.log('Found device', device.friendlyName, 'model', device.modelName)
       device.foundReachable = new Date()
 
       // Update our list of found devices
       if (!this._foundDevices[device.wlanMac]) {
+        // Check if it is an AVR with IP control
+        let avr = new DenonAvr(device.address);
+        try {
+          let result = await avr.connect();
+          device.isAVR = result === 'Connected';
+          if (device.isAVR) {
+            device.avrControl = avr;
+            avr.disconnect();
+          }
+        } catch(e) { device.isAVR = false; }
         device.isAvailable = false // becomes 'true' when associated PID is found
         device.isReachable = true
         this._foundDevices[device.wlanMac] = device
+
         // Check if we already found the player info via CLI
         if (this._playerQueue[device.address]) {
           this.updatePlayersInfo(Object.values(this._playerQueue))
@@ -120,6 +133,34 @@ module.exports = class HeosDriver extends Homey.Driver {
       firmwareDate: this._foundDevices[id].firmwareDate,
       firmwareRevision: this._foundDevices[id].firmwareRevision
     }
+  }
+
+  async getAvrState(id) {
+    if (this._foundDevices[id] && this._foundDevices[id].isAVR) {
+      let avr = this._foundDevices[id].avrControl;
+      await avr.connect();
+      let state = await avr.checkOnOff();
+      avr.disconnect();
+      this.log('getAvrState:', state);
+      return state !== 'PWSTANDBY';
+    } else {
+      return;
+    }
+  }
+
+  async setAvrState(id, state) {
+    let result;
+    if (this._foundDevices[id] && this._foundDevices[id].isAVR) {
+      let avr = this._foundDevices[id].avrControl;
+      await avr.connect();
+      this.log('setAvrState to', state);
+      if (state) {
+        result = await avr.turnOnHeos();
+      } else {
+        result = await avr.turnOff();
+      }
+    }
+    return result;
   }
 
   /**
@@ -450,7 +491,7 @@ module.exports = class HeosDriver extends Homey.Driver {
     let rootDevice = this._foundDevices[this._root]
     if (rootDevice) {
       rootDevice.instance.groupGetGroups((err, groups) => {
-        if (Array.isArray(groups.payload)) {
+        if (groups && Array.isArray(groups.payload)) {
           this._groups = {}
           groups.payload.forEach(group => {
             this.log('Group', group.name)
@@ -479,17 +520,21 @@ module.exports = class HeosDriver extends Homey.Driver {
         // only add player devices
         if (player !== undefined) {
   				let iconname = icons[player.model] || 'icon'
-  				if (player.model.indexOf('AVR') >= 0) {
-  					iconname = 'avr'
+  				if (iconname === 'icon' && player.model.indexOf('AVR') >= 0) {
+  					iconname = 'dm-avr'
   				}
   				iconname = 'icons/' + iconname + '.svg'
   				this.log(player.name, iconname)
-
+          let capabilities = this.getManifest().capabilities;
+          if (foundDevice.isAVR) {
+            capabilities = ['onoff'].concat(capabilities);
+          }
           let device = {
   					name: player.name,
   					data: {
   						id: id // wlan Mac
   					},
+            capabilities: capabilities,
             settings: {
               brand: foundDevice.manufacturer,
               modelName: player.model,

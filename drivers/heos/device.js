@@ -24,6 +24,18 @@ module.exports = class HeosDevice extends Homey.Device {
     this.id = await this.getData().id
     this.driver = await this.getDriver()
 
+		// Register driver event handlers
+    this.handlers = {
+      'available': this.onAvailable,
+      'unavailable': this.onUnavailable,
+    }
+    this.handlers[this.id] = this.onEvent
+
+    for (let h in this.handlers) {
+      this.handlers[h] = this.handlers[h].bind(this)
+      this.driver.on(h, this.handlers[h])
+    }
+
 		// For backward compatibility: add capabilities that were previously not there
 		let deviceCap = this.getCapabilities();
 		let currentCap = this.driver.getManifest().capabilities;
@@ -34,7 +46,7 @@ module.exports = class HeosDevice extends Homey.Device {
 			}
 		}
 		for (let c in deviceCap) {
-			if (!currentCap.includes(deviceCap[c])) {
+			if (deviceCap[c] !== 'onoff' && !currentCap.includes(deviceCap[c])) {
 				this.log('Removing capability', deviceCap[c], 'from device', this.getName());
 				this.removeCapability(deviceCap[c]).catch(this.error);
 			}
@@ -129,19 +141,10 @@ module.exports = class HeosDevice extends Homey.Device {
 				return Promise.resolve(inputs);
 			})
 
-    // Register driver event handlers
-    this.handlers = {
-      'available': this.onAvailable,
-      'unavailable': this.onUnavailable,
-    }
-    this.handlers[this.id] = this.onEvent
-
-    for (let h in this.handlers) {
-      this.handlers[h] = this.handlers[h].bind(this)
-      this.driver.on(h, this.handlers[h])
-    }
-
     // Register capability listeners
+		this.registerCapabilityListener('onoff', (state) => {
+			return this.driver.setAvrState(this.id, state);
+		});
     this.registerCapabilityListener('speaker_prev', (state) => {
 			return this.driver.sendPlayerCommand(this.id, 'player/play_previous');
 		});
@@ -174,10 +177,8 @@ module.exports = class HeosDevice extends Homey.Device {
 		if (!this.driver.getPlayerAvailable(this.id)) {
 			this.setUnavailable(Homey.__('error.unreachable', { since: new Date().toDateString() }));
 		} else {
-			await this.setAvailable().catch(this.error);
-			this.setValues();
+			this.onAvailable(this.id);
 		}
-
   }
 
   onDeleted() {
@@ -218,6 +219,7 @@ module.exports = class HeosDevice extends Homey.Device {
         let state = message.state === 'play'
         this.setCapabilityValue('speaker_playing', state).catch(this.error);
         this.triggers[message.state].trigger(this)
+				this.setAvrOnOff();
         break
       }
 			case 'repeat_mode_changed': {
@@ -287,6 +289,18 @@ module.exports = class HeosDevice extends Homey.Device {
     }
   }
 
+	setAvrOnOff() {
+		if (this.getCapabilities().includes('onoff')) {
+			this.driver.getAvrState(this.id)
+				.then((state) => {
+					this.log('On/off =', state);
+					this.setCapabilityValue('onoff', state)
+						.catch(e => this.error('onoff (1)', e))
+				})
+				.catch(e => this.error('onoff (2)', e))
+		}
+	}
+
   setValues() {
     // Initialize state
     this.driver.sendPlayerCommand(this.id, 'player/get_volume')
@@ -314,6 +328,7 @@ module.exports = class HeosDevice extends Homey.Device {
     	})
 			.catch(this.error);
 		this.onEvent('player_now_playing_changed');
+		this.setAvrOnOff();
   }
 
 }
