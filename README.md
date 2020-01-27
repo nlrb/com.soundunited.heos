@@ -6,15 +6,12 @@ _This app is based on the Denon Heos app from Athom._
 
 #### Features
 
-The following items are changes to the offical Homey app:
+The following items are changes to the official Homey app:
 * __Robustness__: Players can go offline and come back online without issue
-* __Control__: The mobile card now also enables to (un)mute or stop playback
+* __Control__: The mobile card now also can turn a receiver on/off
+* __Info__: Show album/station information, album art can be from a local server
 * __Information__: The device settings shows information about the devices
-* __Triggers__: Flow triggers are available (start, stop, pause, now playing)
-* __Media__: The Heos speakers can be selected as a Homey speaker in Media (only URL streaming supported now)
+* __Flow control__: From a flow you can play a Heos favourite, URL, or selected AUX input
 
-#### Known (Homey) issues
-* The initial state of a device can be shown as unknown (while the values have been set correctly)
-* The play/pause state in media can get out-of-sync with the speaker state
-
-_The intent is that these changes are merged into the official Heos app from Athom (if they are willing)._
+#### Known issues
+* The on/off state of a receiver device can get out of sync with the actual state

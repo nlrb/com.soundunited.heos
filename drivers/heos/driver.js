@@ -9,6 +9,7 @@ const icons = {
   'HEOS HomeCinema': 'homecinema',
   'HEOS AVR': 'avr',
   'HEOS Amp': 'amp',
+  'HEOS Link': 'amp',
   'HEOS Sub': 'sub',
   'HEOS 1': 'heos1',
   'HEOS 3': 'heos3',

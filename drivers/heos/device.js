@@ -51,6 +51,7 @@ module.exports = class HeosDevice extends Homey.Device {
 				this.removeCapability(deviceCap[c]).catch(this.error);
 			}
 		}
+		this.hasOnOff = deviceCap.includes('onoff');
 
     // Homey flow handling - triggers
     const triggers = ['play', 'pause', 'stop', 'now_playing']
@@ -290,7 +291,7 @@ module.exports = class HeosDevice extends Homey.Device {
   }
 
 	setAvrOnOff() {
-		if (this.getCapabilities().includes('onoff')) {
+		if (this.hasOnOff) {
 			this.driver.getAvrState(this.id)
 				.then((state) => {
 					this.log('On/off =', state);
