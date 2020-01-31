@@ -81,12 +81,16 @@ module.exports = class HeosDevice extends Homey.Device {
 					for (let cnt = 0; cnt < favourites.length; cnt++) {
 						let fav = favourites[cnt]
 						if (fav.name.toLowerCase().indexOf(query.toLowerCase()) >= 0) {
-							result.push({
-								image: fav.image_url,
+							let item = {
 								name: fav.name,
 								type: fav.type,
 								preset: cnt + 1
-							})
+							}
+							// Workaround for mobile app, cannot handle empty image element
+							if (fav.image_url !== '') {
+								item.image = fav.image_url;
+							}
+							result.push(item);
 						}
 					}
 					this.log('Result', result)
