@@ -14,7 +14,10 @@ const icons = {
   'HEOS 1': 'heos1',
   'HEOS 3': 'heos3',
   'HEOS 5': 'heos5',
-  'HEOS 7': 'heos7'
+  'HEOS 7': 'heos7',
+  'Denon Home 150': 'home150',
+  'Denon Home 250': 'home250',
+  'Denon Home 350': 'home350'
 }
 
 const heosevents = {
@@ -397,6 +400,7 @@ module.exports = class HeosDriver extends Homey.Driver {
             this.emit(mac, on, msg)
           } else {
             this.log('Error: pid-mac mapping incomplete', pid, 'ignoring event', on)
+            this.updatePlayers();
           }
         } else {
           let gid = msg.gid
